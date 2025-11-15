@@ -2,20 +2,28 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/webhook.js",
-      "use": "@vercel/node"
+      "src": "api/webhook.py",
+      "use": "@vercel/python",
+      "config": {
+        "build": "pip install -r requirements.txt && playwright install --with-deps"
+      }
     }
   ],
   "functions": {
-    "api/webhook.js": {
-      "maxDuration": 30,
-      "memory": 512
+    "api/webhook.py": {
+      "maxDuration": 45,
+      "memory": 1024,
+      "includeFiles": [
+        "resutbot.py",
+        "results_helper.py",
+        "ExamTimeTable.py"
+      ]
     }
   },
   "routes": [
     {
       "src": "/(.*)",
-      "dest": "api/webhook.js"
+      "dest": "api/webhook.py"
     }
   ]
 }

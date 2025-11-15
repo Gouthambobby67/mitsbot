@@ -162,7 +162,7 @@ async def get_year(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def get_sem(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores Semester and shows result link options."""
+    """Stores Semester and shows department options."""
     query = update.callback_query
     await query.answer()
     
@@ -171,32 +171,25 @@ async def get_sem(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     
     reg = context.user_data['regulation']
     year = context.user_data['year']
-    all_collected_data = [reg, year, sem]
     
-    # Get the list of result names/links
-    link_options = a.get_results_link(all_collected_data)
+    departments = {
+        'CE': 'Civil Engineering (CE)',
+        'EEE': 'Electrical & Electronics Engineering (EEE)',
+        'ME': 'Mechanical Engineering (MECH)',
+        'ECE': 'Electronics & Communication Engineering (ECE)',
+        'CSE': 'Computer Science & Engineering (CSE)',
+        'CSE-AI': 'Computer Science & Engineering - Artificial Intelligence (CSE-AI)',
+        'CSE-DS': 'Computer Science & Engineering - Data Science (CSE-DS)',
+        'CSE-CS': 'Computer Science & Engineering - Cyber Security (CSE-CS)',
+        'CSE-NW': 'Computer Science & Engineering - Networks (CSE-Networks)',
+        'CSE-AI&ML': 'Computer Science & Engineering - Artificial Intelligence & Machine Learning (CSE-AI & ML)',
+        'CSE-IOT': 'Computer Science & Engineering - IOT (CSE-IOT)',
+        'CST': 'Computer Science & Technology (CST)',
+        'CST-IT': 'Computer Science & Information Technology (CS-IT)',
+        'IT': 'Information Technology (IT)'
+    }
     
-    # Store options list in context for the next step
-    context.user_data["link_options"] = link_options
-    
-    keyboard = []
-    # Send the index (0, 1, 2...) as callback_data
-    for index, option in enumerate(link_options):
-        keyboard.append([InlineKeyboardButton(option, callback_data=f"{index}")])
-        
-    # Handle case where no links are found
-    if not link_options:
-        logger.warning(f"No link options found for {reg}-{year}-{sem}.")
-        await query.edit_message_text(
-            text=f"✅ Selections complete:\n"
-                 f"Regulation: {reg}\n"
-                 f"Year: {year}\n"
-                 f"Semester: {sem}\n\n"
-                 f"Sorry, no result links were found for these options. "
-                 f"Please type /cancel or start over with /resultscheck."
-        )
-        context.user_data.clear()
-        return ConversationHandler.END
+    keyboard = [[InlineKeyboardButton(v, callback_data=k)] for k, v in departments.items()]
         
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -205,65 +198,21 @@ async def get_sem(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
              f"Regulation: {reg}\n"
              f"Year: {year}\n"
              f"Semester: {sem}\n\n"
-             f"Please choose your result link:",
+             f"Please choose your department:",
         reply_markup=reply_markup
     )
     return GET_OPTION
 
 
 async def get_option(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Stores chosen option and asks for Roll Number."""
+    """Stores chosen department and asks for Roll Number."""
     query = update.callback_query
     await query.answer()
     
-    try:
-        option_index_str = query.data
-        option_index = int(option_index_str)
-        
-        link_options = context.user_data.get("link_options")
-        
-        if not link_options:
-            logger.error("User context is missing 'link_options'.")
-            await query.edit_message_text(
-                text="An error occurred (missing context). Please start over with /resultscheck."
-            )
-            context.user_data.clear()
-            return ConversationHandler.END
-
-        if 0 <= option_index < len(link_options):
-            selected_option_text = link_options[option_index]
-            
-            logger.info(f"User selected option index: {option_index}, text: {selected_option_text}")
-            
-            reg = context.user_data['regulation']
-            year = context.user_data['year']
-            sem = context.user_data['sem']
-            
-            all_new_collected_data = [reg, year, sem, option_index]
-            
-            logger.info(f"Calling a.print_options with: {all_new_collected_data}")
-            link_from_print_options = a.print_options(all_new_collected_data)
-            
-            context.user_data['final_link'] = link_from_print_options
-            logger.info(f"Storing 'final_link': {link_from_print_options}")
-            
-            await query.edit_message_text(text=f"You selected: {selected_option_text}")
-        
-        else:
-            logger.warning(f"Invalid option index: {option_index} for link_options of length {len(link_options)}")
-            await query.edit_message_text(
-                text="An error occurred (invalid index). Please start over with /resultscheck."
-            )
-            context.user_data.clear()
-            return ConversationHandler.END
-
-    except Exception as e:
-        logger.error(f"Error in get_option: {e}", exc_info=True)
-        await query.edit_message_text(
-            text="A critical error occurred. Please start over with /resultscheck."
-        )
-        context.user_data.clear()
-        return ConversationHandler.END
+    department_code = query.data
+    context.user_data['department_code'] = department_code
+    
+    await query.edit_message_text(text=f"You selected: {department_code}")
         
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -301,7 +250,7 @@ async def confirm_roll(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         await query.edit_message_text(text=f"Roll number {context.user_data['roll']} confirmed.")
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Finally, please enter your Date of Birth (MM/DD/YYYY):"
+            text="Finally, please enter your Date of Birth (YYYY-MM-DD):"
         )
         return GET_DOB
     else:
@@ -338,12 +287,15 @@ async def confirm_dob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         await query.edit_message_text(text=f"Date of Birth {context.user_data['dob']} confirmed.")
         
         # Get all the data collected and stored in context
-        link = context.user_data.get("final_link")
         roll = context.user_data.get("roll")
         dob = context.user_data.get("dob")
-        
+        department_code = context.user_data.get("department_code")
+        regulation = context.user_data.get("regulation")
+        year = context.user_data.get("year")
+        sem = context.user_data.get("sem")
+
         # Final data list to pass to the processing function
-        all_collected_data = [link, roll, dob]
+        all_collected_data = [None, roll, dob, department_code, regulation, year, sem]
         
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -370,7 +322,8 @@ async def confirm_dob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
                 logger.info(f"Sending text result: {results}")
                 await context.bot.send_message(
                     chat_id=update.effective_chat.id,
-                    text=f"Here is your result link/data: {results}"
+                    text=results,
+                    parse_mode="HTML"
                 )
                 
         except Exception as e:
@@ -384,7 +337,7 @@ async def confirm_dob(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         return ConversationHandler.END
     
     else: 
-        await query.edit_message_text(text="Okay, please enter your Date of Birth again (MM/DD/YYYY):")
+        await query.edit_message_text(text="Okay, please enter your Date of Birth again (YYYY-MM-DD):")
         return GET_DOB
 
 
