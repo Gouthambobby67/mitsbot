@@ -119,12 +119,17 @@ export default function setupHandlers(bot, Markup) {
           const dob = ctx.session.dob
           await ctx.reply('✅ **All data collected!**\n\nProcessing your request...\n\nPlease wait...', { parse_mode: 'Markdown' })
           try {
+            console.log('DEBUG: Calling botWork with:', { link, roll, dob })
             const result = await botWork({ link, roll, dob })
+            console.log('DEBUG: botWork result:', result)
             if (result && result.image) {
               await ctx.replyWithPhoto({ source: result.image })
             } else if (result && result.text) {
-              await ctx.reply(result.text)
+              // Support both regular text and HTML formatted messages
+              const parseMode = result.parse_mode || 'Markdown'
+              await ctx.reply(result.text, { parse_mode: parseMode })
             } else {
+              console.log('DEBUG: botWork returned empty result')
               await ctx.reply('Sorry, an error occurred while processing your results.')
             }
           } catch {
