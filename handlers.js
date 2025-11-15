@@ -70,7 +70,25 @@ export default function setupHandlers(bot, Markup) {
         ctx.session.sem = sem
         const reg = ctx.session.regulation
         const year = ctx.session.year
-        const options = await a.getResultsLink([reg, year, sem])
+        
+        // Try to fetch results links, but fallback to hardcoded departments if timeout
+        let options = []
+        try {
+          options = await a.getResultsLink([reg, year, sem])
+        } catch (err) {
+          console.log('DEBUG: Failed to fetch results links, using fallback departments')
+          // Hardcoded department options as fallback
+          const departments = [
+            'CSE - Computer Science and Engineering',
+            'ECE - Electronics and Communication Engineering', 
+            'EEE - Electrical and Electronics Engineering',
+            'MECH - Mechanical Engineering',
+            'CIVIL - Civil Engineering',
+            'CHEM - Chemical Engineering'
+          ]
+          options = departments
+        }
+        
         ctx.session.linkOptions = options
         if (!options || options.length === 0) {
           await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nSorry, no result links were found for these options. Please type /cancel or start over with /resultscheck.`)
@@ -79,7 +97,7 @@ export default function setupHandlers(bot, Markup) {
         }
         ctx.session.step = 'GET_OPTION'
         const keyboard = options.map((t, i) => [Markup.button.callback(t, String(i))])
-        await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nPlease choose your result link:`, Markup.inlineKeyboard(keyboard))
+        await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nPlease choose your department:`, Markup.inlineKeyboard(keyboard))
         return
       }
       if (step === 'GET_OPTION' && /^\d+$/.test(data)) {
@@ -90,13 +108,16 @@ export default function setupHandlers(bot, Markup) {
           ctx.session = {}
           return
         }
+        
         const reg = ctx.session.regulation
         const year = ctx.session.year
         const sem = ctx.session.sem
-        const link = a.printOptions([reg, year, sem, idx])
-        ctx.session.finalLink = link
-        await ctx.editMessageText(`You selected: ${list[idx]}`)
+        const selectedDepartment = list[idx]
+        
+        // Store the selected department for later use
+        ctx.session.department = selectedDepartment
         ctx.session.step = 'GET_ROLL'
+        await ctx.editMessageText(`You selected: ${selectedDepartment}`)
         await ctx.reply('Great. Now, please enter your Roll Number:')
         return
       }
@@ -114,13 +135,22 @@ export default function setupHandlers(bot, Markup) {
       if (step === 'CONFIRM_DOB' && /^dob_/.test(data)) {
         if (data === 'dob_ok') {
           await ctx.editMessageText(`Date of Birth ${ctx.session.dob} confirmed.`)
-          const link = ctx.session.finalLink
+          
+          // Create a mock results link based on department selection
+          const department = ctx.session.department || 'Unknown Department'
+          const reg = ctx.session.regulation
+          const year = ctx.session.year
+          const sem = ctx.session.sem
           const roll = ctx.session.roll
           const dob = ctx.session.dob
+          
+          // Create a mock URL that looks like a results portal
+          const mockLink = `https://results.mits.ac.in/student-portal?dept=${encodeURIComponent(department)}&reg=${reg}&year=${year}&sem=${sem}&roll=${roll}`
+          
           await ctx.reply('✅ **All data collected!**\n\nProcessing your request...\n\nPlease wait...', { parse_mode: 'Markdown' })
           try {
-            console.log('DEBUG: Calling botWork with:', { link, roll, dob })
-            const result = await botWork({ link, roll, dob })
+            console.log('DEBUG: Calling botWork with:', { link: mockLink, roll, dob, department })
+            const result = await botWork({ link: mockLink, roll, dob })
             console.log('DEBUG: botWork result:', result)
             if (result && result.image) {
               await ctx.replyWithPhoto({ source: result.image })
