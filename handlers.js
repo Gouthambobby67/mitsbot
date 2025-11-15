@@ -162,8 +162,8 @@ export default function setupHandlers(bot, Markup) {
           
           await ctx.reply('✅ **All data collected!**\n\nProcessing your request...\n\nPlease wait...', { parse_mode: 'Markdown' })
           try {
-            console.log('DEBUG: Calling botWork with:', { link: mockLink, roll, dob, department })
-            const result = await botWork({ link: mockLink, roll, dob })
+            console.log('DEBUG: Calling botWork with:', { link: mockLink, roll, dob, departmentCode: deptCode, regulation: reg, year, semester: sem })
+            const result = await botWork({ link: mockLink, roll, dob, departmentCode: deptCode, regulation: reg, year, semester: sem })
             console.log('DEBUG: botWork result:', result)
             if (result && result.image) {
               await ctx.replyWithPhoto({ source: result.image })
