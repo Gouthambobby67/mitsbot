@@ -13,7 +13,8 @@ export default async function botWork({ link, roll, dob }) {
       headless: chromium.headless
     })
     const page = await browser.newPage()
-    await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 })
+    await page.goto(link, { waitUntil: 'networkidle2', timeout: 60000 })
 
     try {
       const rollHandle = await findInput(page, ['roll', 'hall', 'ht', 'hallticket'])
@@ -27,21 +28,24 @@ export default async function botWork({ link, roll, dob }) {
       }
     } catch {}
 
-    const image = await page.screenshot({ type: 'png', fullPage: true })
+    const image = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
     await browser.close()
-    if (image) return { image }
+    if (image && image.length < 7_500_000) return { image }
   } catch {}
 
   const tryEndpoints = [
-    u => `https://api.screenshotone.com/take?url=${encodeURIComponent(u)}&delay=2000&format=png`,
-    u => `https://api.urlbox.io/v1/render?url=${encodeURIComponent(u)}&full_page=true&format=png`,
-    u => `https://v1.apiflash.com/capture?url=${encodeURIComponent(u)}&format=png&full_page=true&response_type=image`
+    u => `https://api.screenshotone.com/take?url=${encodeURIComponent(u)}&delay=2000&format=jpeg&viewport_width=1024&full_page=false`,
+    u => `https://api.urlbox.io/v1/render?url=${encodeURIComponent(u)}&width=1024&full_page=false&format=jpeg`,
+    u => `https://v1.apiflash.com/capture?url=${encodeURIComponent(u)}&format=jpeg&width=1024&full_page=false&response_type=image`
   ]
   for (const make of tryEndpoints) {
     try {
       const url = make(link)
       const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 })
-      if (res.status === 200 && res.data) return { image: Buffer.from(res.data) }
+      if (res.status === 200 && res.data) {
+        const buf = Buffer.from(res.data)
+        if (buf.length < 7_500_000) return { image: buf }
+      }
     } catch {}
   }
   const text = `✅ **Your Results**\n\n📋 Roll Number: \`${roll}\`\n📅 Date of Birth: \`${dob}\`\n\n🔗 Results Link:\n${link}\n\nClick the link to view your results.`
