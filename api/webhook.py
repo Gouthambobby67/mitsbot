@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from telegram import Update
-from telegram.ext import Application, ContextTypes
+from telegram.ext import Application
 from bot_handlers import setup_handlers
 
 # Configure logging
@@ -17,73 +17,57 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Get environment variables
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-WEBHOOK_URL = os.getenv("TELEGRAM_WEBHOOK_URL")
-
+# Environment
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 if not TOKEN:
-    logger.error("TELEGRAM_BOT_TOKEN environment variable not set")
-    TOKEN = ""
+    logger.error("TELEGRAM_BOT_TOKEN is not set")
 
-if not WEBHOOK_URL:
-    logger.warning("TELEGRAM_WEBHOOK_URL environment variable not set")
-    WEBHOOK_URL = ""
-
-# Create application
+# Build application and register handlers
 application = Application.builder().token(TOKEN).build()
-
-# Setup handlers
 setup_handlers(application)
 
-async def handle_request(request):
-    """Handle incoming Telegram webhook requests"""
-    try:
-        if request.method == "POST":
-            data = await request.json()
-            update = Update.de_json(data, application.bot)
-            
-            if update:
-                await application.process_update(update)
-            
-            return {"status": "ok"}, 200
-        else:
-            return {"status": "ok"}, 200
-    except Exception as e:
-        logger.error(f"Error handling request: {e}", exc_info=True)
-        return {"error": str(e)}, 500
+_app_started = False
+
+async def _ensure_started():
+    global _app_started
+    if not _app_started:
+        await application.initialize()
+        await application.start()
+        _app_started = True
+        logger.info("Telegram application initialized and started")
 
 
 async def handler(request):
-    """Vercel handler function"""
+    """Vercel serverless function entrypoint."""
     try:
         if request.method == "POST":
+            await _ensure_started()
             data = await request.json()
             update = Update.de_json(data, application.bot)
-            
             if update:
                 await application.process_update(update)
-        
-        return {"status": "ok"}
+            return {"ok": True}
+        # health check
+        return {"ok": True, "message": "Send POST from Telegram"}
     except Exception as e:
         logger.error(f"Error in webhook handler: {e}", exc_info=True)
-        return {"error": str(e)}
+        return {"ok": False, "error": str(e)}
 
 
-# For local testing with FastAPI or similar
+# Optional local testing
 if __name__ == "__main__":
     import asyncio
     from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse
-    
+    import uvicorn
+
     app = FastAPI()
-    
+
     @app.post("/")
     async def webhook(request: Request):
         return await handler(request)
-    
+
     @app.get("/")
     async def root():
-        return {"status": "Bot is running"}
-    
-    import uvicorn
+        return {"ok": True}
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
