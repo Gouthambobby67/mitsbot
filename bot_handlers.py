@@ -1,5 +1,6 @@
 import logging
-from ExamTimeTable import results_checking, exam_timetable
+from ExamTimeTable import exam_timetable
+from results_helper import ResultsChecking
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
@@ -31,9 +32,9 @@ logger = logging.getLogger(__name__)
 
 # --- Global Class Instance ---
 try:
-    a = results_checking()
+    a = ResultsChecking()
 except Exception as e:
-    logger.critical(f"Failed to instantiate results_checking class: {e}")
+    logger.critical(f"Failed to instantiate ResultsChecking class: {e}")
     a = None
 
 
