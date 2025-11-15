@@ -77,14 +77,22 @@ export default function setupHandlers(bot, Markup) {
           options = await a.getResultsLink([reg, year, sem])
         } catch (err) {
           console.log('DEBUG: Failed to fetch results links, using fallback departments')
-          // Hardcoded department options as fallback
+          // Real department codes from the actual results portal
           const departments = [
-            'CSE - Computer Science and Engineering',
-            'ECE - Electronics and Communication Engineering', 
-            'EEE - Electrical and Electronics Engineering',
-            'MECH - Mechanical Engineering',
-            'CIVIL - Civil Engineering',
-            'CHEM - Chemical Engineering'
+            'CSE - Computer Science & Engineering',
+            'ECE - Electronics & Communication Engineering', 
+            'EEE - Electrical & Electronics Engineering',
+            'ME - Mechanical Engineering',
+            'CE - Civil Engineering',
+            'CSE-AI - Computer Science & Engineering - Artificial Intelligence',
+            'CSE-DS - Computer Science & Engineering - Data Science',
+            'CSE-CS - Computer Science & Engineering - Cyber Security',
+            'CSE-NW - Computer Science & Engineering - Networks',
+            'CSE-AI&ML - Computer Science & Engineering - AI & ML',
+            'CSE-IOT - Computer Science & Engineering - IOT',
+            'CST - Computer Science & Technology',
+            'CST-IT - Computer Science & Information Technology',
+            'IT - Information Technology'
           ]
           options = departments
         }
@@ -144,8 +152,13 @@ export default function setupHandlers(bot, Markup) {
           const roll = ctx.session.roll
           const dob = ctx.session.dob
           
-          // Create a mock URL that looks like a results portal
-          const mockLink = `https://results.mits.ac.in/student-portal?dept=${encodeURIComponent(department)}&reg=${reg}&year=${year}&sem=${sem}&roll=${roll}`
+          // Extract department code from the selected text (e.g., "CSE - Computer Science" -> "CSE")
+          const deptCode = department.split(' - ')[0] || 'CSE'
+          
+          // Create a mock URL that matches the real portal pattern
+          // Based on the HTML: B.Tech-I-II-R23-Supplementary-July-2025
+          const resultId = `B.Tech-${year}-${sem}-${reg}-Regular-${new Date().getFullYear()}`
+          const mockLink = `https://results.mits.ac.in/student-portal?resultid=${encodeURIComponent(resultId)}&dept=${deptCode}&usn=${roll}&dateofbirth=${dob}`
           
           await ctx.reply('✅ **All data collected!**\n\nProcessing your request...\n\nPlease wait...', { parse_mode: 'Markdown' })
           try {

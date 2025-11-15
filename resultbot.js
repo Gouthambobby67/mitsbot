@@ -28,22 +28,34 @@ export default async function botWork({ link, roll, dob }) {
       console.log('DEBUG: ScreenshotMachine failed:', err.message)
     }
 
-    // Instead of complex HTML-to-image, create a beautiful Telegram-formatted message
-    console.log('DEBUG: Creating formatted Telegram message')
+    // Create a beautiful HTML-formatted message that matches the real portal styling
+    console.log('DEBUG: Creating formatted Telegram message with portal styling')
     
-    // Create a beautiful HTML-formatted message that Telegram will render well
+    // Parse department from the link if available
+    const urlParams = new URLSearchParams(link.split('?')[1] || '')
+    const dept = urlParams.get('dept') || 'Unknown Department'
+    const reg = urlParams.get('reg') || 'Unknown'
+    const year = urlParams.get('year') || 'Unknown'
+    const sem = urlParams.get('sem') || 'Unknown'
+    
+    // Create a beautiful HTML-formatted message that mimics the real portal
     const htmlMessage = `
-📋 <b>STUDENT RESULTS</b>
-━━━━━━━━━━━━━━━━━━━━━
+📋 <b>MITS STUDENT RESULTS PORTAL</b>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-<b>🎓 Roll Number:</b> <code>${roll}</code>
-<b>📅 Date of Birth:</b> <code>${dob}</code>
+<b>🎓 Student Details:</b>
+├ <b>Department:</b> <code>${dept}</code>
+├ <b>Regulation:</b> <code>${reg}</code>
+├ <b>Year:</b> <code>${year}</code>
+├ <b>Semester:</b> <code>${sem}</code>
+├ <b>Roll Number:</b> <code>${roll}</code>
+└ <b>Date of Birth:</b> <code>${dob}</code>
 
-<b>🔗 Results Portal:</b>
-<a href="${link}">📊 Click Here to View Your Results</a>
+<b>🔗 Access Your Results:</b>
+<a href="${link}">📊 Click Here to View Results</a>
 
-━━━━━━━━━━━━━━━━━━━━━
-<i>💡 Your complete results are available at the link above</i>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+<i>💡 Your complete results are available at the official MITS portal link above</i>
     `.trim()
     
     // Return as HTML format for Telegram
@@ -55,7 +67,7 @@ export default async function botWork({ link, roll, dob }) {
     // Ultimate fallback
     console.log('DEBUG: Outer catch block triggered:', err.message)
     return { 
-      text: `✅ <b>Your Results</b>\n\n📋 Roll Number: <code>${roll}</code>\n📅 Date of Birth: <code>${dob}</code>\n\n🔗 <a href="${link}">View Results</a>`,
+      text: `✅ <b>MITS Student Results</b>\n\n📋 Roll Number: <code>${roll}</code>\n📅 Date of Birth: <code>${dob}</code>\n\n🔗 <a href="${link}">View Results</a>`,
       parse_mode: 'HTML'
     }
   }
