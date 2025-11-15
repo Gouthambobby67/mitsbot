@@ -6,6 +6,7 @@ from pathlib import Path
 # Add parent directory to path to import bot modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application
 from bot_handlers import setup_handlers
@@ -36,38 +37,22 @@ async def _ensure_started():
         _app_started = True
         logger.info("Telegram application initialized and started")
 
+# Expose ASGI app for Vercel (@vercel/python detects FastAPI/ASGI apps)
+app = FastAPI()
 
-async def handler(request):
-    """Vercel serverless function entrypoint."""
+@app.post("/")
+async def telegram_webhook(request: Request):
     try:
-        if request.method == "POST":
-            await _ensure_started()
-            data = await request.json()
-            update = Update.de_json(data, application.bot)
-            if update:
-                await application.process_update(update)
-            return {"ok": True}
-        # health check
-        return {"ok": True, "message": "Send POST from Telegram"}
+        await _ensure_started()
+        data = await request.json()
+        update = Update.de_json(data, application.bot)
+        if update:
+            await application.process_update(update)
+        return {"ok": True}
     except Exception as e:
-        logger.error(f"Error in webhook handler: {e}", exc_info=True)
+        logger.error(f"Error in telegram_webhook: {e}", exc_info=True)
         return {"ok": False, "error": str(e)}
 
-
-# Optional local testing
-if __name__ == "__main__":
-    import asyncio
-    from fastapi import FastAPI, Request
-    import uvicorn
-
-    app = FastAPI()
-
-    @app.post("/")
-    async def webhook(request: Request):
-        return await handler(request)
-
-    @app.get("/")
-    async def root():
-        return {"ok": True}
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+@app.get("/")
+async def health():
+    return {"ok": True}
