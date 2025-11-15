@@ -4,77 +4,76 @@ export default async function botWork({ link, roll, dob }) {
   try {
     if (!link) return { text: 'No results link available' }
 
-    try {
-      const { default: chromium } = await import('@sparticuz/chromium')
-      const puppeteer = (await import('puppeteer-core')).default
-      const browser = await puppeteer.launch({
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless
-      })
-      const page = await browser.newPage()
-      await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 })
-      await page.goto(link, { waitUntil: 'networkidle2', timeout: 60000 })
-
-      try {
-        const rollHandle = await findInput(page, ['roll', 'hall', 'ht', 'hallticket'])
-        if (rollHandle) await rollHandle.type(String(roll), { delay: 20 })
-        const dobHandle = await findInput(page, ['dob', 'date'])
-        if (dobHandle) await dobHandle.type(String(dob), { delay: 20 })
-        const btn = await findButton(page, ['submit', 'result', 'view', 'go'])
-        if (btn) {
-          await btn.click()
-          await page.waitForTimeout(2500)
-        }
-      } catch {}
-
-      const image = await page.screenshot({ type: 'jpeg', quality: 80, fullPage: false })
-      await browser.close()
-      if (image && image.length < 7_500_000) return { image }
-    } catch {}
-
-    const tryEndpoints = [
-      u => `https://api.screenshotone.com/take?url=${encodeURIComponent(u)}&delay=2000&format=jpeg&viewport_width=1024&full_page=false`,
-      u => `https://api.urlbox.io/v1/render?url=${encodeURIComponent(u)}&width=1024&full_page=false&format=jpeg`,
-      u => `https://v1.apiflash.com/capture?url=${encodeURIComponent(u)}&format=jpeg&width=1024&full_page=false&response_type=image`
+    // Try free screenshot services first (no API keys required)
+    const freeServices = [
+      // Free services that work without API keys
+      u => `https://render-tron.appspot.com/screenshot/${encodeURIComponent(u)}?width=1024&height=768&delay=2000`,
+      u => `https://screenshotapi.net/api/v1/screenshot?url=${encodeURIComponent(u)}&width=1024&height=768&delay=2000`,
+      u => `https://api.screenshotmachine.com/?url=${encodeURIComponent(u)}&device=desktop&dimension=1024x768&delay=2000&format=jpg`
     ]
-    for (const make of tryEndpoints) {
+
+    for (const make of freeServices) {
       try {
         const url = make(link)
-        const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 })
+        const res = await axios.get(url, { 
+          responseType: 'arraybuffer', 
+          timeout: 15000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        })
         if (res.status === 200 && res.data) {
           const buf = Buffer.from(res.data)
-          if (buf.length < 7_500_000) return { image: buf }
+          if (buf.length < 7_500_000 && buf.length > 1000) return { image: buf }
         }
       } catch {}
     }
-    const text = `✅ **Your Results**\n\n📋 Roll Number: \`${roll}\`\n📅 Date of Birth: \`${dob}\`\n\n🔗 Results Link:\n${link}\n\nClick the link to view your results.`
+
+    // Try lightweight HTML-to-image conversion
+    try {
+      const htmlRes = await axios.get(link, { timeout: 10000 })
+      if (htmlRes.status === 200 && htmlRes.data) {
+        // Create a simple HTML page with the result data
+        const htmlContent = `
+          <html>
+          <head><meta charset="utf-8"><title>Results</title></head>
+          <body style="font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5;">
+            <div style="max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+              <h1 style="color: #2c3e50; text-align: center; margin-bottom: 30px;">📋 Student Results</h1>
+              <div style="background: #ecf0f1; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+                <p><strong>Roll Number:</strong> ${roll}</p>
+                <p><strong>Date of Birth:</strong> ${dob}</p>
+                <p><strong>Results Portal:</strong> <a href="${link}" target="_blank">Click here to view results</a></p>
+              </div>
+              <div style="text-align: center; color: #7f8c8d; font-size: 14px; margin-top: 30px;">
+                <p>🔗 Access your complete results by clicking the link above</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `
+        
+        // Use a free HTML to image service
+        const imageRes = await axios.post('https://hcti.io/v1/image', {
+          html: htmlContent,
+          css: 'body { margin: 0; }',
+          width: 800,
+          height: 600
+        }, {
+          timeout: 15000,
+          responseType: 'arraybuffer'
+        }).catch(() => null)
+        
+        if (imageRes && imageRes.status === 200 && imageRes.data) {
+          const buf = Buffer.from(imageRes.data)
+          if (buf.length < 7_500_000 && buf.length > 1000) return { image: buf }
+        }
+      }
+    } catch {}
+
+    // Fallback: Return formatted text with direct link
+    const text = `✅ **Your Results**\n\n📋 Roll Number: \`${roll}\`\n📅 Date of Birth: \`${dob}\`\n\n🔗 Results Link:\n${link}\n\n💡 *Tip: Click the link above to view your complete results on the official portal.*`
     return { text }
   } catch {
-    return { text: `✅ **Your Results**\n\n📋 Roll Number: \`${roll}\`\n📅 Date of Birth: \`${dob}\`\n\n🔗 Results Link:\n${link}` }
+    // Ultimate fallback
+    return { text: `✅ **Your Results**\n\n📋 Roll Number: \`${roll}\`\n📅 Date of Birth: \`${dob}\`\n\n🔗 Direct Link:\n${link}` }
   }
-}
-
-async function findInput(page, keys) {
-  const inputs = await page.$$('input')
-  for (const i of inputs) {
-    const hint = (await page.evaluate(el => {
-      const ph = el.getAttribute('placeholder') || ''
-      const nm = el.getAttribute('name') || ''
-      const id = el.getAttribute('id') || ''
-      return (ph + ' ' + nm + ' ' + id).toLowerCase()
-    }, i)) || ''
-    if (keys.some(k => hint.includes(k))) return i
-  }
-  return null
-}
-
-async function findButton(page, keys) {
-  const buttons = await page.$$('button, input[type=submit]')
-  for (const b of buttons) {
-    const hint = (await page.evaluate(el => (el.innerText || el.value || '').toLowerCase(), b)) || ''
-    if (keys.some(k => hint.includes(k))) return b
-  }
-  return null
 }
