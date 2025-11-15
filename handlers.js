@@ -79,111 +79,117 @@ export default function setupHandlers(bot, Markup) {
           console.log('DEBUG: Failed to fetch results links, using fallback departments')
           // Real department codes from the actual results portal
           const departments = [
-            'CSE - Computer Science & Engineering',
-            'ECE - Electronics & Communication Engineering', 
-            'EEE - Electrical & Electronics Engineering',
-            'ME - Mechanical Engineering',
-            'CE - Civil Engineering',
-            'CSE-AI - Computer Science & Engineering - Artificial Intelligence',
-            'CSE-DS - Computer Science & Engineering - Data Science',
-            'CSE-CS - Computer Science & Engineering - Cyber Security',
-            'CSE-NW - Computer Science & Engineering - Networks',
-            'CSE-AI&ML - Computer Science & Engineering - AI & ML',
-            'CSE-IOT - Computer Science & Engineering - IOT',
-            'CST - Computer Science & Technology',
-            'CST-IT - Computer Science & Information Technology',
-            'IT - Information Technology'
-          ]
-          options = departments
+            'CE', 'EEE', 'ME', 'ECE', 'CSE', 'CSE-AI', 'CSE-DS', 'CSE-CS',
+            'CSE-NW', 'CSE-AI&ML', 'CSE-IOT', 'CST', 'CST-IT', 'IT'
+          ];
+          options = departments.map(dep => {
+            const fullNames = {
+              'CE': 'Civil Engineering (CE)',
+              'EEE': 'Electrical & Electronics Engineering (EEE)',
+              'ME': 'Mechanical Engineering (MECH)',
+              'ECE': 'Electronics & Communication Engineering (ECE)',
+              'CSE': 'Computer Science & Engineering (CSE)',
+              'CSE-AI': 'Computer Science & Engineering - Artificial Intelligence (CSE-AI)',
+              'CSE-DS': 'Computer Science & Engineering - Data Science (CSE-DS)',
+              'CSE-CS': 'Computer Science & Engineering - Cyber Security (CSE-CS)',
+              'CSE-NW': 'Computer Science & Engineering - Networks (CSE-Networks)',
+              'CSE-AI&ML': 'Computer Science & Engineering - Artificial Intelligence & Machine Learning (CSE-AI & ML)',
+              'CSE-IOT': 'Computer Science & Engineering - IOT (CSE-IOT)',
+              'CST': 'Computer Science & Technology (CST)',
+              'CST-IT': 'Computer Science & Information Technology (CS-IT)',
+              'IT': 'Information Technology (IT)'
+            };
+            return fullNames[dep] || dep;
+          });
         }
         
-        ctx.session.linkOptions = options
+        ctx.session.linkOptions = options;
         if (!options || options.length === 0) {
-          await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nSorry, no result links were found for these options. Please type /cancel or start over with /resultscheck.`)
-          ctx.session = {}
-          return
+          await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nSorry, no result links were found for these options. Please type /cancel or start over with /resultscheck.`);
+          ctx.session = {};
+          return;
         }
-        ctx.session.step = 'GET_OPTION'
-        const keyboard = options.map((t, i) => [Markup.button.callback(t, String(i))])
-        await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nPlease choose your department:`, Markup.inlineKeyboard(keyboard))
-        return
+        ctx.session.step = 'GET_OPTION';
+        const keyboard = options.map((t, i) => [Markup.button.callback(t, String(i))]);
+        await ctx.editMessageText(`✅ Selections complete:\nRegulation: ${reg}\nYear: ${year}\nSemester: ${sem}\n\nPlease choose your department:`, Markup.inlineKeyboard(keyboard));
+        return;
       }
       if (step === 'GET_OPTION' && /^\d+$/.test(data)) {
-        const idx = parseInt(data, 10)
-        const list = ctx.session.linkOptions || []
+        const idx = parseInt(data, 10);
+        const list = ctx.session.linkOptions || [];
         if (idx < 0 || idx >= list.length) {
-          await ctx.editMessageText('An error occurred (invalid index). Please start over with /resultscheck.')
-          ctx.session = {}
-          return
+          await ctx.editMessageText('An error occurred (invalid index). Please start over with /resultscheck.');
+          ctx.session = {};
+          return;
         }
         
-        const reg = ctx.session.regulation
-        const year = ctx.session.year
-        const sem = ctx.session.sem
-        const selectedDepartment = list[idx]
+        const reg = ctx.session.regulation;
+        const year = ctx.session.year;
+        const sem = ctx.session.sem;
+        const selectedDepartment = list[idx];
         
         // Store the selected department for later use
-        ctx.session.department = selectedDepartment
-        ctx.session.step = 'GET_ROLL'
-        await ctx.editMessageText(`You selected: ${selectedDepartment}`)
-        await ctx.reply('Great. Now, please enter your Roll Number:')
-        return
+        ctx.session.department = selectedDepartment;
+        ctx.session.step = 'GET_ROLL';
+        await ctx.editMessageText(`You selected: ${selectedDepartment}`);
+        await ctx.reply('Great. Now, please enter your Roll Number:');
+        return;
       }
       if (step === 'CONFIRM_ROLL' && /^roll_/.test(data)) {
         if (data === 'roll_ok') {
-          await ctx.editMessageText(`Roll number ${ctx.session.roll} confirmed.`)
-          ctx.session.step = 'GET_DOB'
-          await ctx.reply('Finally, please enter your Date of Birth (MM/DD/YYYY):')
+          await ctx.editMessageText(`Roll number ${ctx.session.roll} confirmed.`);
+          ctx.session.step = 'GET_DOB';
+          await ctx.reply('Finally, please enter your Date of Birth (YYYY-MM-DD):');
         } else {
-          await ctx.editMessageText('Okay, please enter your Roll Number again:')
-          ctx.session.step = 'GET_ROLL'
+          await ctx.editMessageText('Okay, please enter your Roll Number again:');
+          ctx.session.step = 'GET_ROLL';
         }
-        return
+        return;
       }
       if (step === 'CONFIRM_DOB' && /^dob_/.test(data)) {
         if (data === 'dob_ok') {
-          await ctx.editMessageText(`Date of Birth ${ctx.session.dob} confirmed.`)
+          await ctx.editMessageText(`Date of Birth ${ctx.session.dob} confirmed.`);
           
           // Create a mock results link based on department selection
-          const department = ctx.session.department || 'Unknown Department'
-          const reg = ctx.session.regulation
-          const year = ctx.session.year
-          const sem = ctx.session.sem
-          const roll = ctx.session.roll
-          const dob = ctx.session.dob
+          const department = ctx.session.department || 'Unknown Department';
+          const reg = ctx.session.regulation;
+          const year = ctx.session.year;
+          const sem = ctx.session.sem;
+          const roll = ctx.session.roll;
+          const dob = ctx.session.dob;
           
           // Extract department code from the selected text (e.g., "CSE - Computer Science" -> "CSE")
-          const deptCode = department.split(' - ')[0] || 'CSE'
+          const deptCode = department.split(' - ')[0] || 'CSE';
           
           // Create a mock URL that matches the real portal pattern
           // Based on the HTML: B.Tech-I-II-R23-Supplementary-July-2025
-          const resultId = `B.Tech-${year}-${sem}-${reg}-Regular-${new Date().getFullYear()}`
-          const mockLink = `https://results.mits.ac.in/student-portal?resultid=${encodeURIComponent(resultId)}&dept=${deptCode}&usn=${roll}&dateofbirth=${dob}`
+          const resultId = `B.Tech-${year}-${sem}-${reg}-Regular-${new Date().getFullYear()}`;
+          const mockLink = `https://results.mits.ac.in/student-portal?resultid=${encodeURIComponent(resultId)}&dept=${deptCode}&usn=${roll}&dateofbirth=${dob}`;
           
-          await ctx.reply('✅ **All data collected!**\n\nProcessing your request...\n\nPlease wait...', { parse_mode: 'Markdown' })
+          await ctx.reply('✅ **All data collected!**\n\nProcessing your request...\n\nPlease wait...', { parse_mode: 'Markdown' });
           try {
-            console.log('DEBUG: Calling botWork with:', { link: mockLink, roll, dob, departmentCode: deptCode, regulation: reg, year, semester: sem })
-            const result = await botWork({ link: mockLink, roll, dob, departmentCode: deptCode, regulation: reg, year, semester: sem })
-            console.log('DEBUG: botWork result:', result)
+            console.log('DEBUG: Calling botWork with:', { link: mockLink, roll, dob, departmentCode: deptCode, regulation: reg, year, semester: sem });
+            const result = await botWork({ link: mockLink, roll, dob, departmentCode: deptCode, regulation: reg, year, semester: sem });
+            console.log('DEBUG: botWork result:', result);
             if (result && result.image) {
-              await ctx.replyWithPhoto({ source: result.image })
+              await ctx.replyWithPhoto({ source: result.image });
             } else if (result && result.text) {
               // Support both regular text and HTML formatted messages
-              const parseMode = result.parse_mode || 'Markdown'
-              await ctx.reply(result.text, { parse_mode: parseMode })
+              const parseMode = result.parse_mode || 'Markdown';
+              await ctx.reply(result.text, { parse_mode: parseMode });
             } else {
-              console.log('DEBUG: botWork returned empty result')
-              await ctx.reply('Sorry, an error occurred while processing your results.')
+              console.log('DEBUG: botWork returned empty result');
+              await ctx.reply('Sorry, an error occurred while processing your results.');
             }
           } catch {
-            await ctx.reply('Sorry, an error occurred while processing your results.')
+            await ctx.reply('Sorry, an error occurred while processing your results.');
           }
-          ctx.session = {}
+          ctx.session = {};
         } else {
-          await ctx.editMessageText('Okay, please enter your Date of Birth again (MM/DD/YYYY):')
-          ctx.session.step = 'GET_DOB'
+          await ctx.editMessageText('Okay, please enter your Date of Birth again (YYYY-MM-DD):');
+          ctx.session.step = 'GET_DOB';
         }
-        return
+        return;
       }
     }
   })
